@@ -1,0 +1,6 @@
+.env
+__pycache__/
+env/
+*.sqlite3
+keys/web_project/ 
+web_project/ 
