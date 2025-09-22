@@ -1,18 +1,32 @@
+# car_adverts/views.py
 from datetime import datetime
 from rest_framework import generics, status, filters
-from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework.response import Response
 from rest_framework.pagination import PageNumberPagination
 from django_filters.rest_framework import DjangoFilterBackend
+from drf_yasg.utils import swagger_auto_schema
+from drf_yasg import openapi
 
-from car_adverts.models import Advert
+from .models import Advert
 from .serializers import AdvertSerializer
-from car_adverts.tasks import GetAdvertIds
+from .tasks import GetAdvertIds
 
 
 class LaunchTasks(APIView):
     """Запуск задачи GetAdvertIds"""
-
+    
+    @swagger_auto_schema(
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            required=['city_alias', 'date'],
+            properties={
+                'city_alias': openapi.Schema(type=openapi.TYPE_STRING, description='Alias города'),
+                'date': openapi.Schema(type=openapi.TYPE_STRING, description='Дата в формате YYYY-MM-DD')
+            }
+        ),
+        responses={200: openapi.Response('Task started')}
+    )
     def post(self, request):
         city_alias = request.data.get("city_alias")
         date_str = request.data.get("date")
@@ -31,36 +45,30 @@ class LaunchTasks(APIView):
         return Response({"task_id": task.id, "status": "started"})
 
 
-
 class StandardResultsSetPagination(PageNumberPagination):
     page_size = 10
     page_size_query_param = "page_size"
     max_page_size = 100
 
+
 class AdvertsListView(generics.ListAPIView):
+    """Список объявлений с фильтрацией, поиском и пагинацией"""
     serializer_class = AdvertSerializer
     pagination_class = StandardResultsSetPagination
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ['year_of_issue']
-    search_fields = ['title']
-    ordering_fields = ['publication_date', 'price']
+    filterset_fields = ['year_of_issue'] 
+    search_fields = ['title']  
+    ordering_fields = ['publication_date', 'price']  
     ordering = ['-publication_date']
 
     def get_queryset(self):
+       
         return Advert.objects.select_related('city').prefetch_related('advert_images').all()
 
 
-class AdvertDetailView(generics.RetrieveAPIView, generics.DestroyAPIView):
+class AdvertDetailView(generics.RetrieveDestroyAPIView):
+    """Просмотр и удаление объявления"""
     serializer_class = AdvertSerializer
 
     def get_queryset(self):
         return Advert.objects.select_related('city').prefetch_related('advert_images').all()
-
-
-# 5. Тестовая точка для запуска fetch_ads_task
-class FetchAdsView(APIView):
-    def post(self, request):
-        city_alias = request.data.get("city_alias")
-        pub_date = request.data.get("date")
-        task = GetAdvertIds().apply_async(args=[pub_date, city_alias])
-        return Response({"task_id": task.id, "status": "started"})

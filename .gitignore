@@ -4,3 +4,11 @@ env/
 *.sqlite3
 keys/web_project/ 
 web_project/ 
+# Текстовые файлы — всегда LF
+* text=auto eol=lf
+
+# Бинарные файлы (изображения) — без конверсии
+*.jpg binary
+*.jpeg binary
+*.png binary
+*.gif binary
